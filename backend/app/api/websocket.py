@@ -12,3 +12,34 @@
 #             await websocket.send_text(data.json())
 #     except WebSocketDisconnect:
 #         print("WebSocket disconnected")
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import json
+
+router = APIRouter()
+
+clients = set()  # frontend clients to broadcast to
+
+@router.websocket("/ws/telemetry")
+async def telemetry_ws(websocket: WebSocket):
+    await websocket.accept()
+    print("✅ WebSocket connected")
+
+    clients.add(websocket)
+
+    try:
+        while True:
+            msg = await websocket.receive_text()
+            print("📥 Received telemetry:", msg)
+
+            # Broadcast the same data to all connected frontends
+            for client in clients:
+                if client != websocket:
+                    try:
+                        await client.send_text(msg)
+                    except Exception:
+                        pass
+
+    except WebSocketDisconnect:
+        print("❌ WebSocket disconnected")
+        clients.remove(websocket)

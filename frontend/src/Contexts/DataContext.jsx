@@ -2,10 +2,10 @@ import React, {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
+  useRef,
 } from "react";
-import { connectMQTT } from "../utils/mqttClient";
+import { startRealtime } from "../utils/Data";
 
 const DataContext = createContext();
 
@@ -17,84 +17,37 @@ export function DataProvider({ children }) {
   const [devices, setDevices] = useState([]);
   const [selected, setSelected] = useState([]);
   const [dataMap, setDataMap] = useState({});
-
-  const clientRef = useRef(null);
+  const wsRef = useRef(null);
 
   useEffect(() => {
-    // ✅ Use EMQX WebSocket URL (port 8083)
-    // Example: ws://broker.emqx.io:8083/mqtt
-    const mqttUrl = import.meta.env.VITE_MQTT_URL || "wss://broker.emqx.io:8084/mqtt";
+    wsRef.current = startRealtime(onMessage);
 
-    console.log("🌐 Connecting to MQTT broker:", mqttUrl);
-
-    clientRef.current = connectMQTT(
-      mqttUrl,
-      {}, // options
-      onMessage,
-      () => {
-        console.log("✅ MQTT connected to", mqttUrl);
-
-        // ✅ Subscribe to ESP32 topic
-        const topic = "devices/esp32-energy-meter-01/telemetry";
-        try {
-          clientRef.current.subscribe(topic, { qos: 0 }, (err) => {
-            if (err) console.error("❌ MQTT subscribe error:", err);
-            else console.log(`📡 Subscribed to topic: ${topic}`);
-          });
-        } catch (e) {
-          console.error("❌ MQTT subscribe failed:", e);
-        }
-      },
-      (err) => console.error("❌ MQTT error:", err)
-    );
-
-    // Cleanup on unmount
     return () => {
-      if (clientRef.current) {
-        console.log("🧹 Disconnecting MQTT client...");
-        clientRef.current.end();
-      }
+      if (wsRef.current) wsRef.current.stop();
     };
   }, []);
 
-  // --- MQTT message handler ---
-  function onMessage(topic, payloadBuffer) {
+  function onMessage(topic, payloadStr) {
     try {
-      // Convert payload to string and parse JSON
-      const payloadStr =
-        typeof payloadBuffer === "string"
-          ? payloadBuffer
-          : payloadBuffer.toString();
-
       const payload = JSON.parse(payloadStr);
+      const deviceId = payload.deviceId || topic.split("/")[1] || "unknown";
 
-      console.log("📩 Received MQTT Message:");
-      console.log("   🏷️ Topic:", topic);
-      console.log("   📦 Raw:", payloadStr);
-      console.log("   🔍 Parsed:", payload);
-
-      // Extract deviceId from topic path
-      const deviceId = topic.split("/")[1] || "unknown";
-
-      // Add device to list if new
+      // ✅ Add device if new
       setDevices((prev) => {
         if (!prev.includes(deviceId)) return [...prev, deviceId];
         return prev;
       });
 
-      // Store telemetry
+      // ✅ Store telemetry data
       setDataMap((prev) => {
         const list = prev[deviceId] ? [...prev[deviceId]] : [];
         const maxPoints = 600;
 
         list.push({
-          ts: payload.timestamp_ms || Date.now(),
-          voltage_V: payload.voltage_V ?? null,
-          current_A: payload.current_A ?? null,
-          active_power_kW: payload.active_power_kW ?? null,
-          total_active_energy_kWh: payload.total_active_energy_kWh ?? null,
-          power_factor: payload.power_factor ?? null,
-          frequency_Hz: payload.frequency_Hz ?? null,
+          ts: new Date(payload.ts).getTime(),
+          power_w: payload.power_w ?? null,
+          energy_wh: payload.energy_wh ?? null,
+          co2_ppm: payload.co2_ppm ?? null,
         });
 
         if (list.length > maxPoints) list.splice(0, list.length - maxPoints);
@@ -102,7 +55,7 @@ export function DataProvider({ children }) {
         return { ...prev, [deviceId]: list };
       });
     } catch (e) {
-      console.error("❌ Error parsing MQTT message:", e, payloadBuffer);
+      console.error("❌ Error processing message:", e, payloadStr);
     }
   }
 
@@ -122,9 +75,5 @@ export function DataProvider({ children }) {
     setSelected,
   };
 
-  return (
-    <DataContext.Provider value={value}>
-      {children}
-    </DataContext.Provider>
-  );
+  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
