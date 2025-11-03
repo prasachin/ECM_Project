@@ -30,9 +30,14 @@ async def telemetry_ws(websocket: WebSocket):
     try:
         while True:
             msg = await websocket.receive_text()
-            print("📥 Received telemetry:", msg)
+            print("📥 Raw message:", msg)
 
-            # Broadcast the same data to all connected frontends
+            try:
+                data = json.loads(msg)
+                print("📦 Parsed JSON:", data)
+            except json.JSONDecodeError:
+                print("⚠️ Received non-JSON message")
+
             for client in clients:
                 if client != websocket:
                     try:
@@ -43,3 +48,4 @@ async def telemetry_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         print("❌ WebSocket disconnected")
         clients.remove(websocket)
+

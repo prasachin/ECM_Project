@@ -38,16 +38,23 @@ export function DataProvider({ children }) {
         return prev;
       });
 
-      // ✅ Store telemetry data
+      // ✅ Convert your ESP data to the format your UI expects
+      const ts = Date.now();
+      const power_w = (payload.active_power_kW ?? 0) * 1000; // convert kW → W
+      const energy_wh = (payload.total_active_energy_kWh ?? 0) * 1000; // convert kWh → Wh
+      const emissionFactor = 0.82; // kg CO₂ per kWh (India average)
+      const co2_kg = (payload.total_active_energy_kWh ?? 0) * emissionFactor;
+      const co2_ppm = co2_kg * 1000; // optional scaling if you want to display "ppm-style"
+
       setDataMap((prev) => {
         const list = prev[deviceId] ? [...prev[deviceId]] : [];
         const maxPoints = 600;
 
         list.push({
-          ts: new Date(payload.ts).getTime(),
-          power_w: payload.power_w ?? null,
-          energy_wh: payload.energy_wh ?? null,
-          co2_ppm: payload.co2_ppm ?? null,
+          ts,
+          power_w,
+          energy_wh,
+          co2_ppm,
         });
 
         if (list.length > maxPoints) list.splice(0, list.length - maxPoints);

@@ -17,4 +17,4 @@ app.include_router(websocket.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Energy Tracker Backend (MQTT mode) is running!"}
+    return {"message": "Energy Tracker Backend is running!"}
