@@ -1,24 +1,11 @@
-# from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-# from app.services.mock_generator import generate_data
-# import json
-
-# router = APIRouter()
-
-# @router.websocket("/ws/telemetry")
-# async def telemetry_ws(websocket: WebSocket):
-#     await websocket.accept()
-#     try:
-#         async for data in generate_data():
-#             await websocket.send_text(data.json())
-#     except WebSocketDisconnect:
-#         print("WebSocket disconnected")
-
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import app.services.database as db
+from fastapi import HTTPException
 import json
 
 router = APIRouter()
 
-clients = set()  # frontend clients to broadcast to
+clients = set()
 
 @router.websocket("/ws/telemetry")
 async def telemetry_ws(websocket: WebSocket):
@@ -35,6 +22,9 @@ async def telemetry_ws(websocket: WebSocket):
             try:
                 data = json.loads(msg)
                 print("📦 Parsed JSON:", data)
+
+                await db.save_telemetry(data)
+
             except json.JSONDecodeError:
                 print("⚠️ Received non-JSON message")
 
@@ -49,3 +39,13 @@ async def telemetry_ws(websocket: WebSocket):
         print("❌ WebSocket disconnected")
         clients.remove(websocket)
 
+
+@router.get("/telemetry/{date}")
+async def get_telemetry_by_date(date: str):
+    """
+    Retrieve telemetry data for a given date (YYYY-MM-DD)
+    """
+    doc = await db.telemetry_collection.find_one({"date": date}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="No data found for that date")
+    return doc
