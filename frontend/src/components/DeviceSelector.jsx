@@ -18,7 +18,7 @@ export default function DeviceSelector({ isDarkMode = false }) {
     }
 
     return (
-        <div className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.cardBorder} shadow-sm p-4 transition-colors duration-300`}>
+        <div className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.cardBorder} shadow-sm p-4 transition-colors duration-300 `}>
             <h3 className={`text-lg font-semibold ${themeStyles.headingText} mb-0 transition-colors duration-300`}>
                 Appliances
             </h3>

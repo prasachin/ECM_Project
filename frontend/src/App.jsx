@@ -15,7 +15,7 @@ export default function App() {
     <DataProvider>
       <div className="min-h-screen bg-gray-50">
         <header className="bg-[#00254A] border-b border-gray-500 shadow-sm fixed top-0 w-full max-h-[10vh]">
-          <div className="max-w-7xl mx-auto px-4 py-2 lg:px-6">
+          <div className="max-w-[92vw] mx-auto px-4 py-2 lg:px-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center justify-center space-x-3">
                 <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm">
@@ -72,12 +72,12 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 mt-[10vh]">
+        <main className="flex-1 mt-[7vh]">
           <Dashboard isDarkMode={isDark} />
         </main>
 
         <footer className="bg-[#00254A] border-t border-gray-200 mt-auto">
-          <div className="max-w-7xl mx-auto px-4 py-4 lg:px-6">
+          <div className="max-w-[92vw] mx-auto px-4 py-4 lg:px-6">
             <div className="flex items-center justify-between text-sm text-gray-500">
               <p className='text-white'>&copy; 2024 Energy Tracker. Monitor your energy consumption efficiently.</p>
               <div className="flex items-center space-x-4 text-white">
