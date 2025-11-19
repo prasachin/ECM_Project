@@ -12,7 +12,7 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
   const [loading, setLoading] = useState(false);
 
   async function fetchTelemetryData(start, end) {
-    const baseUrl = "http://localhost:8000/telemetry";
+    const baseUrl = "/telemetry";
     let dates = [];
 
     // If end date not selected → single date export

@@ -1,6 +1,8 @@
 // utils/realtime.js
 export function startRealtime(onMessage) {
-  const ws = new WebSocket("ws://localhost:8000/ws/telemetry");
+  const ws = new WebSocket(
+    `${window.location.origin.replace("http", "ws")}/ws/telemetry`
+  );
 
   ws.onopen = () => console.log("✅ WebSocket connected to backend");
 
