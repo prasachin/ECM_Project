@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -10,33 +10,26 @@ from app.services.database import connect_to_mongo, close_mongo_connection
 app = FastAPI(title="Energy Tracker Backend")
 
 
-# Path to React build folder
 static_path = Path(__file__).parent / "static"
 
-# Mount static directory
 app.mount("/static", StaticFiles(directory=static_path, html=False), name="static")
+app.include_router(websocket.router)
 
-
-# Serve index.html for all non-API routes
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
-    index_file = static_path / "index.html"
-    if index_file.exists():
-        return FileResponse(index_file)
-    return {"error": "index.html not found in /static"}
+    if full_path.startswith(("api/", "telemetry/", "ws/", "static/")):
+        raise HTTPException(status_code=404)
 
+    return FileResponse(static_path / "index.html")
 
-# --------------- API & WEBSOCKETS -----------------------
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # optional since frontend is same domain
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(websocket.router)
 
 
 @app.on_event("startup")
