@@ -11,11 +11,10 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
   const [endDate, setEndDate] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ➤ ADDED — dropdown for choosing export type
   const [exportType, setExportType] = useState("pdf");
 
   async function fetchTelemetryData(start, end) {
-    const baseUrl = "https://ecm-project-ws1b.onrender.com/telemetry";
+    const baseUrl = "/telemetry";
     let dates = [];
 
     if (!end) {
@@ -46,7 +45,6 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
     return allData;
   }
 
-  // ➤ ADDED — CSV Export Logic
   async function exportCsv() {
     setLoading(true);
     setShowModal(false);
@@ -58,7 +56,6 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
       return;
     }
 
-    // List ALL fields you want in CSV
     const header = [
       "Date & Time",
       "Power(W)",
@@ -123,7 +120,6 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
     window.URL.revokeObjectURL(url);
     setLoading(false);
   }
-  // (UNCHANGED) — PDF export
   async function exportPdf() {
     setLoading(true);
     setShowModal(false);
@@ -260,7 +256,6 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
     setLoading(false);
   }
 
-  // ➤ ADDED — handles correct export type
   function handleExport() {
     if (exportType === "pdf") exportPdf();
     else exportCsv();
@@ -275,8 +270,6 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
       >
         Export Options
       </h3>
-
-      {/* ➤ ADDED — Export Type Dropdown */}
       <select
         value={exportType}
         onChange={(e) => setExportType(e.target.value)}
@@ -335,8 +328,6 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
               >
                 Cancel
               </button>
-
-              {/* ➤ Updated export button uses handleExport() */}
               <button
                 onClick={handleExport}
                 className={`px-4 py-2 text-sm rounded-md ${themeStyles.buttonPrimary} text-white cursor-pointer`}

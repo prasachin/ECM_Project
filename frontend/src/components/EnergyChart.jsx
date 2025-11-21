@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -11,6 +11,9 @@ import {
   Title,
 } from "chart.js";
 import "chartjs-adapter-date-fns";
+import "./EnergyChart.css"; 
+import warningSound from "../assets/warning.mp3";
+
 ChartJS.register(
   TimeScale,
   LinearScale,
@@ -98,6 +101,50 @@ export default function EnergyChart({ seriesData, isDarkMode }) {
       ? "Show Power Factor Vs Time"
       : "Show Power (W) Vs Time";
 
+  const [pirMotionCounter, setPirMotionCounter] = useState(0);
+  const [warningActive, setWarningActive] = useState(false);
+
+  useEffect(() => {
+    let counter = 0;
+    const interval = setInterval(() => {
+      const pirValues = Object.values(seriesData).flatMap((deviceData) =>
+        deviceData.map((point) => point.pir_motion)
+      );
+
+      if (pirValues.slice(-10).every((value) => value === 0)) {
+        counter++;
+        if (counter >= 1) {
+          setWarningActive(true);
+        }
+      } else {
+        counter = 0;
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [seriesData]);
+
+  const stopWarning = () => {
+    setWarningActive(false);
+  };
+
+  useEffect(() => {
+    let audio;
+    if (warningActive) {
+      audio = new Audio(warningSound);
+      audio.loop = true;
+      audio.play();
+    } else if (audio) {
+      audio.pause();
+      audio = null;
+    }
+    return () => {
+      if (audio) {
+        audio.pause();
+      }
+    };
+  }, [warningActive]);
+
   return (
     <div style={{ height: 360 }} className="relative">
       <button onClick={toggleMetric} className={buttonClasses}>
@@ -116,6 +163,20 @@ export default function EnergyChart({ seriesData, isDarkMode }) {
             </p>
           </div>
         )}
+      {warningActive && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-100">
+          <div className="blinking-lights"></div>
+          <p className="text-white text-lg font-bold">
+            Warning: PIR Motion inactive!
+          </p>
+          <button
+            onClick={stopWarning}
+            className="mt-4 px-4 py-2 bg-yellow-500 text-white rounded-md cursor-pointer"
+          >
+            Stop Warning
+          </button>
+        </div>
+      )}
     </div>
   );
 }

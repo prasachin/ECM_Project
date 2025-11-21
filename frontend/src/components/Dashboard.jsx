@@ -121,7 +121,7 @@ export default function Dashboard({ isDarkMode = false }) {
                   Real-time energy monitoring across selected devices
                 </p>
               </div>
-              {selected.length !== 0 ? (
+              {selected.length === 0 ? (
                 <div
                   className={`flex items-center justify-center h-64 ${themeStyles.emptyStateBg} rounded-lg border-2 border-dashed ${themeStyles.emptyStateBorder} transition-colors duration-300`}
                 >

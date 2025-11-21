@@ -2,6 +2,7 @@
 export function startRealtime(onMessage) {
   const ws = new WebSocket(
     `${window.location.origin.replace("http", "ws")}/ws/telemetry`
+    // "https://ecm-project-ws1b.onrender.com/ws/telemetry"
   );
 
   ws.onopen = () => console.log("✅ WebSocket connected to backend");

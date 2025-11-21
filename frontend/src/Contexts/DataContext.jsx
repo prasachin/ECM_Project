@@ -32,19 +32,17 @@ export function DataProvider({ children }) {
       const payload = JSON.parse(payloadStr);
       const deviceId = payload.deviceId || topic.split("/")[1] || "unknown";
 
-      // ✅ Add device if new
       setDevices((prev) => {
         if (!prev.includes(deviceId)) return [...prev, deviceId];
         return prev;
       });
 
-      // ✅ Convert your ESP data to the format your UI expects
       const ts = Date.now();
-      const power_w = (payload.active_power_kW ?? 0) * 1000; // convert kW → W
-      const energy_wh = (payload.total_active_energy_kWh ?? 0) * 1000; // convert kWh → Wh
-      const emissionFactor = 0.82; // kg CO₂ per kWh (India average)
+      const power_w = (payload.active_power_kW ?? 0) * 1000; 
+      const energy_wh = (payload.total_active_energy_kWh ?? 0) * 1000; 
+      const emissionFactor = 0.82; 
       const co2_kg = (payload.total_active_energy_kWh ?? 0) * emissionFactor;
-      const co2_ppm = co2_kg * 1000; // optional scaling if you want to display "ppm-style"
+      const co2_ppm = co2_kg * 1000; 
 
       setDataMap((prev) => {
         const list = prev[deviceId] ? [...prev[deviceId]] : [];
@@ -56,6 +54,7 @@ export function DataProvider({ children }) {
           energy_wh,
           co2_ppm,
           power_factor: payload.power_factor ?? null,
+          pir_motion: payload.pir_motion ?? null,
         });
 
         if (list.length > maxPoints) list.splice(0, list.length - maxPoints);
