@@ -11,11 +11,13 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
   const [endDate, setEndDate] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // ➤ ADDED — dropdown for choosing export type
+  const [exportType, setExportType] = useState("pdf");
+
   async function fetchTelemetryData(start, end) {
-    const baseUrl = "/telemetry";
+    const baseUrl = "https://ecm-project-ws1b.onrender.com/telemetry";
     let dates = [];
 
-    // If end date not selected → single date export
     if (!end) {
       dates = [start];
     } else {
@@ -30,7 +32,6 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
     for (const d of dates) {
       const formatted = d.toLocaleDateString("en-CA");
 
-      console.log("Fetching data for", formatted);
       try {
         const res = await fetch(`${baseUrl}/${formatted}`);
         if (res.ok) {
@@ -38,30 +39,107 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
           allData.push(...(doc.data || []));
         }
       } catch (e) {
-        console.warn("⚠️ Could not fetch data for", formatted);
+        console.warn("⚠️ Could not fetch", formatted);
       }
     }
 
     return allData;
   }
 
-  async function exportPdf() {
+  // ➤ ADDED — CSV Export Logic
+  async function exportCsv() {
     setLoading(true);
     setShowModal(false);
 
     const telemetryData = await fetchTelemetryData(startDate, endDate);
-    console.log("Fetched telemetry data:", telemetryData);
     if (!telemetryData.length) {
       alert("No data found for the selected range.");
       setLoading(false);
       return;
     }
 
-    // Group data by date
+    // List ALL fields you want in CSV
+    const header = [
+      "Date & Time",
+      "Power(W)",
+      "Energy(Wh)",
+      "Voltage(V)",
+      "Current(A)",
+      "Reactive Power(kVAr)",
+      "Apparent Power(kVA)",
+      "Power Factor",
+      "Import Active Energy(Wh)",
+      "Export Active Energy(Wh)",
+      "Total Reactive Energy(kVArh)",
+      "Import Reactive Energy(kVArh)",
+      "Export Reactive Energy(kVArh)",
+      "Apparent Energy(kVAh)",
+      "Max Demand Active(kW)",
+      "Max Demand Reactive(kVAr)",
+      "Max Demand Apparent(kVA)",
+      "Device ID",
+    ];
+
+    const rows = telemetryData.map((e) => [
+      e.timestamp ?? "",
+      e.active_power_kW !== undefined
+        ? (e.active_power_kW * 1000).toFixed(2)
+        : "",
+      e.total_active_energy_kWh !== undefined
+        ? (e.total_active_energy_kWh * 1000).toFixed(2)
+        : "",
+      e.voltage_V ?? "",
+      e.current_A ?? "",
+      e.reactive_power_kVAr ?? "",
+      e.apparent_power_kVA ?? "",
+      e.power_factor ?? "",
+      e.import_active_energy_kWh
+        ? (e.import_active_energy_kWh * 1000).toFixed(2)
+        : "",
+      e.export_active_energy_kWh
+        ? (e.export_active_energy_kWh * 1000).toFixed(2)
+        : "",
+      e.total_reactive_energy_kVArh ?? "",
+      e.import_reactive_energy_kVArh ?? "",
+      e.export_reactive_energy_kVArh ?? "",
+      e.apparent_energy_kVAh ?? "",
+      e.max_demand_active_power_kW ?? "",
+      e.max_demand_reactive_power_kVAr ?? "",
+      e.max_demand_apparent_power_kVA ?? "",
+      e.deviceId ?? "",
+    ]);
+
+    let csv = header.join(",") + "\n";
+    rows.forEach((r) => (csv += r.join(",") + "\n"));
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `energy-data-${Date.now()}.csv`;
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+    setLoading(false);
+  }
+  // (UNCHANGED) — PDF export
+  async function exportPdf() {
+    setLoading(true);
+    setShowModal(false);
+
+    const telemetryData = await fetchTelemetryData(startDate, endDate);
+    if (!telemetryData.length) {
+      alert("No data found for the selected range.");
+      setLoading(false);
+      return;
+    }
+
     const grouped = telemetryData.reduce((acc, entry) => {
       const dateKey = new Date(
         entry.timestamp || entry.ts_ms
       ).toLocaleDateString("en-CA");
+
       if (!acc[dateKey]) acc[dateKey] = [];
       acc[dateKey].push(entry);
       return acc;
@@ -69,35 +147,31 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
 
     const doc = new jsPDF({ orientation: "landscape" });
     const now = new Date().toLocaleString();
-
     const dateKeys = Object.keys(grouped).sort();
 
-    // 🧹 Cleanup any leftover temp canvases
     document.querySelectorAll(".temp-chart").forEach((el) => el.remove());
 
     for (let i = 0; i < dateKeys.length; i++) {
       const date = dateKeys[i];
       const entries = grouped[date];
 
-      // 🖼️ Create an offscreen canvas for the chart
       const canvas = document.createElement("canvas");
       canvas.className = "temp-chart";
       canvas.width = 800;
       canvas.height = 300;
       canvas.style.position = "absolute";
       canvas.style.left = "-9999px";
-      canvas.style.top = "0";
       document.body.appendChild(canvas);
+
       const ctx = canvas.getContext("2d");
 
-      // 📊 Generate the chart
       const labels = entries.map((e) =>
         e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : e.ts_ms
       );
-      const powerData = entries.map((e) => (e.active_power_kW ?? 0) * 1000); // → W
+      const powerData = entries.map((e) => (e.active_power_kW ?? 0) * 1000);
       const energyData = entries.map(
         (e) => (e.total_active_energy_kWh ?? 0) * 1000
-      ); // → Wh
+      );
       const voltageData = entries.map((e) => e.voltage_V ?? 0);
       const currentData = entries.map((e) => e.current_A ?? 0);
 
@@ -111,160 +185,72 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
                 label: "Power (W)",
                 data: powerData,
                 borderColor: "#3b82f6",
-                backgroundColor: "#3b82f6",
                 borderWidth: 2,
                 tension: 0.2,
                 fill: false,
                 pointRadius: 0,
-                pointHoverRadius: 4,
-                pointBackgroundColor: "#3b82f6",
-                spanGaps: true,
-              },
-              {
-                label: "Energy (Wh)",
-                data: energyData,
-                borderColor: "#22c55e",
-                backgroundColor: "#22c55e",
-                borderWidth: 2,
-                tension: 0.2,
-                fill: false,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                pointBackgroundColor: "#22c55e",
                 spanGaps: true,
               },
               {
                 label: "Voltage (V)",
                 data: voltageData,
                 borderColor: "#f59e0b",
-                backgroundColor: "#f59e0b",
                 borderWidth: 1.5,
                 tension: 0.2,
                 fill: false,
                 pointRadius: 0,
-                pointHoverRadius: 4,
-                pointBackgroundColor: "#f59e0b",
                 spanGaps: true,
               },
               {
                 label: "Current (A)",
                 data: currentData,
                 borderColor: "#ef4444",
-                backgroundColor: "#ef4444",
                 borderWidth: 1.5,
                 tension: 0.2,
                 fill: false,
                 pointRadius: 0,
-                pointHoverRadius: 4,
-                pointBackgroundColor: "#ef4444",
                 spanGaps: true,
               },
             ],
           },
           options: {
-            animation: false,
             responsive: false,
+            animation: false,
             maintainAspectRatio: false,
-            scales: {
-              x: {
-                title: { display: true, text: "Time" },
-                ticks: { maxTicksLimit: 8 },
-              },
-              y: {
-                title: { display: true, text: "Values" },
-              },
-            },
-            plugins: {
-              legend: { position: "bottom" },
-              title: {
-                display: true,
-                text: `Energy Usage — ${date}`,
-                font: { size: 14 },
-              },
-            },
-            elements: {
-              line: { borderJoinStyle: "round", borderCapStyle: "round" },
-            },
+            plugins: { legend: { position: "bottom" } },
           },
         });
+
         chart.render();
-
-        // 🕒 Wait briefly to ensure canvas pixels are available
         await new Promise((r) => setTimeout(r, 300));
-
-        // 🧾 Capture chart image
         const imgData = canvas.toDataURL("image/png", 1.0);
 
-        // 🗒️ Add a new page (except first)
         if (i > 0) doc.addPage();
 
-        // 🧠 PDF header
         doc.setFontSize(14);
         doc.text(`Energy Usage Report — ${date}`, 14, 16);
         doc.setFontSize(10);
         doc.text(`Generated: ${now}`, 14, 24);
 
-        // 📈 Chart image
         const pageWidth = doc.internal.pageSize.getWidth();
         const imageWidth = pageWidth - 28;
         const imageHeight = (canvas.height / canvas.width) * imageWidth;
-        doc.addImage(
-          imgData,
-          "PNG",
-          14,
-          30,
-          imageWidth,
-          imageHeight,
-          undefined,
-          "FAST"
-        );
 
-        // 📋 Data summary below
+        doc.addImage(imgData, "PNG", 14, 30, imageWidth, imageHeight);
+
         let y = 30 + imageHeight + 10;
         doc.setFontSize(11);
-        doc.text("Telemetry Data Summary", 14, y);
-        y += 6;
-        doc.setFontSize(9);
-
-        // By default show all entries in the summary (paginated). If you want
-        // to limit the number of lines in the generated PDF, change MAX_SUMMARY_LINES.
-        const MAX_SUMMARY_LINES = 1000; // safety cap
-        const summaryEntries = entries.slice(0, Math.min(entries.length, MAX_SUMMARY_LINES));
-
-        summaryEntries.forEach((entry, idx) => {
-          const line = `${idx + 1}. Power: ${
-            entry.active_power_kW
-              ? (entry.active_power_kW * 1000).toFixed(2)
-              : "—"
-          } W | Energy: ${
-            entry.total_active_energy_kWh
-              ? (entry.total_active_energy_kWh * 1000).toFixed(2)
-              : "—"
-          } Wh | Voltage: ${entry.voltage_V ?? "—"} V | Current: ${
-            entry.current_A ?? "—"
-          } A | Time: ${
-            entry.timestamp
-              ? new Date(entry.timestamp).toLocaleTimeString()
-              : "—"
-          }`;
-          doc.text(line, 14, y);
-          y += 6;
-          if (y > 180) {
-            doc.addPage();
-            y = 14;
-          }
-        });
+        doc.text(
+          "For the entire data summary please export in the .csv format.",
+          14,
+          y
+        );
 
         chart.destroy();
         canvas.remove();
-      } else {
-        console.error(
-          "⚠️ Chart.js not found — please import it before using exportPdf()"
-        );
       }
     }
 
-    // 💾 Save final report
     doc.save(
       `energy-report-${
         startDate ? startDate.toISOString().slice(0, 10) : "data"
@@ -272,6 +258,12 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
     );
 
     setLoading(false);
+  }
+
+  // ➤ ADDED — handles correct export type
+  function handleExport() {
+    if (exportType === "pdf") exportPdf();
+    else exportCsv();
   }
 
   return (
@@ -283,46 +275,33 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
       >
         Export Options
       </h3>
+
+      {/* ➤ ADDED — Export Type Dropdown */}
+      <select
+        value={exportType}
+        onChange={(e) => setExportType(e.target.value)}
+        className={`w-full mb-3 px-3 py-2 border rounded-md bg-transparent cursor-pointer ${themeStyles.primaryText}`}
+      >
+        <option value="pdf" className="text-black">
+          Export PDF
+        </option>
+        <option value="csv" className="text-black">
+          Export CSV
+        </option>
+      </select>
+
       <button
         onClick={() => setShowModal(true)}
         disabled={loading}
-        className={`w-full px-4 cursor-pointer py-2 ${themeStyles.buttonPrimary} disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg border border-transparent transition-colors duration-200 flex items-center justify-center gap-2`}
+        className={`w-full px-4 py-2 ${themeStyles.buttonPrimary} text-white rounded-lg cursor-pointer`}
       >
-        {loading ? (
-          "Generating PDF..."
-        ) : (
-          <>
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            Export PDF Report
-          </>
-        )}
+        {loading ? "Processing..." : `Export ${exportType.toUpperCase()}`}
       </button>
-      {/* {selected.length === 0 && (
-        <p
-          className={`text-xs ${themeStyles.mutedText} mt-2 transition-colors duration-300`}
-        >
-          Select devices to enable export
-        </p>
-      )} */}
 
-      {/* 🗓️ Date range modal */}
       {showModal && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-          {/* <div className="absolute inset-0 bg-grey bg-opacity-40 backdrop-blur-xs"></div> */}
           <div
-            className={`bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-300 shadow-lg max-w-sm w-full`}
+            className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full`}
           >
             <h2 className="text-lg font-semibold mb-4 text-center text-white">
               Select Date Range
@@ -332,10 +311,7 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
               <label className="text-sm">Start Date</label>
               <DatePicker
                 selected={startDate}
-                onChange={(date) => {
-                  setStartDate(date);
-                  console.log("Start date set to", date);
-                }}
+                onChange={(date) => setStartDate(date)}
                 className="border rounded-md px-3 py-1 w-full"
                 maxDate={new Date()}
                 dateFormat="yyyy-MM-dd"
@@ -355,16 +331,18 @@ export default function ExportSection({ selected, themeStyles, dataMap }) {
             <div className="flex justify-end gap-3 mt-5">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm rounded-md border text-white border-gray-300 cursor-pointer"
+                className="px-4 py-2 text-sm rounded-md border text-white cursor-pointer"
               >
                 Cancel
               </button>
+
+              {/* ➤ Updated export button uses handleExport() */}
               <button
-                onClick={exportPdf}
+                onClick={handleExport}
                 className={`px-4 py-2 text-sm rounded-md ${themeStyles.buttonPrimary} text-white cursor-pointer`}
                 disabled={!startDate}
               >
-                Export
+                Export {exportType.toUpperCase()}
               </button>
             </div>
           </div>

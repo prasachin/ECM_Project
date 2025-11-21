@@ -3,12 +3,10 @@ import DeviceSelector from "./DeviceSelector";
 import EnergyChart from "./EnergyChart";
 import DataTable from "./DataTable";
 import { useData } from "../Contexts/DataContext";
-import { jsPDF } from "jspdf";
 import ExportSection from "./Export Pdf";
 
 export default function Dashboard({ isDarkMode = false }) {
   const { selected, dataMap } = useData();
-  const chartRef = useRef(null);
 
   const series = useMemo(() => {
     const obj = {};
@@ -18,55 +16,6 @@ export default function Dashboard({ isDarkMode = false }) {
     return obj;
   }, [selected, dataMap]);
 
-  async function exportPdf() {
-    const canvas = document.querySelector("canvas");
-    const imgData = canvas ? canvas.toDataURL("image/png", 1.0) : null;
-
-    const doc = new jsPDF({ orientation: "landscape" });
-
-    doc.setFontSize(14);
-    doc.text("Energy Report", 14, 16);
-    doc.setFontSize(10);
-    const now = new Date().toLocaleString();
-    doc.text(`Generated: ${now}`, 14, 24);
-
-    if (imgData) {
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const imageWidth = pageWidth - 28;
-      const imageHeight = (canvas.height / canvas.width) * imageWidth;
-      doc.addImage(
-        imgData,
-        "PNG",
-        14,
-        28,
-        imageWidth,
-        imageHeight,
-        undefined,
-        "FAST"
-      );
-    }
-
-    let y = 28 + 120;
-    doc.setFontSize(11);
-    doc.text("Latest readings", 14, y);
-    y += 6;
-    doc.setFontSize(9);
-    selected.forEach((id) => {
-      const arr = dataMap[id] || [];
-      const last = arr[arr.length - 1];
-      const line = `${id} — power: ${last ? last.power_w : "—"} W, energy: ${
-        last ? last.energy_wh : "—"
-      } Wh, co2: ${last ? last.co2_ppm : "—"}`;
-      doc.text(line, 14, y);
-      y += 6;
-      if (y > 180) {
-        doc.addPage();
-        y = 14;
-      }
-    });
-
-    doc.save(`energy-report-${Date.now()}.pdf`);
-  }
   const themeStyles = {
     mainBg: isDarkMode ? "bg-gray-900" : "bg-gray-50",
     cardBg: isDarkMode ? "bg-gray-800" : "bg-white",
@@ -112,7 +61,11 @@ export default function Dashboard({ isDarkMode = false }) {
             <div
               className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.cardBorder} shadow-sm p-4 transition-colors duration-300`}
             >
-              <ExportSection selected={selected} themeStyles={themeStyles} isDarkMode={isDarkMode}  />
+              <ExportSection
+                selected={selected}
+                themeStyles={themeStyles}
+                isDarkMode={isDarkMode}
+              />
             </div>
 
             <div
@@ -168,7 +121,7 @@ export default function Dashboard({ isDarkMode = false }) {
                   Real-time energy monitoring across selected devices
                 </p>
               </div>
-              {selected.length === 0 ? (
+              {selected.length !== 0 ? (
                 <div
                   className={`flex items-center justify-center h-64 ${themeStyles.emptyStateBg} rounded-lg border-2 border-dashed ${themeStyles.emptyStateBorder} transition-colors duration-300`}
                 >

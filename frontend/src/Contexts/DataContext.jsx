@@ -55,6 +55,7 @@ export function DataProvider({ children }) {
           power_w,
           energy_wh,
           co2_ppm,
+          power_factor: payload.power_factor ?? null,
         });
 
         if (list.length > maxPoints) list.splice(0, list.length - maxPoints);
